@@ -2,6 +2,7 @@ package org.example.chat.service;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.example.chat.dto.reponse.PublicProfileResponse;
 import org.example.chat.dto.reponse.UserResponse;
 import org.example.chat.dto.request.UpdateProfileRequest;
 import org.example.chat.entity.User;
@@ -40,6 +41,18 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
+    public PublicProfileResponse getPublicProfile(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        return PublicProfileResponse.builder()
+                .username(user.getUsername())
+                .displayName(user.getDisplayName())
+                .avatarUrl(user.getAvatarUrl())
+                .bio(user.getBio())
+                .build();
+    }
+
+    @Transactional(readOnly = true)
     public User loadByUsername(String username) {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
@@ -58,6 +71,9 @@ public class UserService {
         if (req.getAvatarUrl() != null) {
             u.setAvatarUrl(req.getAvatarUrl().isBlank() ? null : req.getAvatarUrl());
         }
+        if (req.getTheme() != null && !req.getTheme().isBlank()) {
+            u.setTheme(req.getTheme());
+        }
         return toResponse(userRepository.save(u));
     }
 
@@ -66,6 +82,14 @@ public class UserService {
         User u = userRepository.findByUsername(username)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
         u.setAvatarUrl(avatarUrl);
+        return toResponse(userRepository.save(u));
+    }
+
+    @Transactional
+    public UserResponse removeAvatar(String username) {
+        User u = userRepository.findByUsername(username)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        u.setAvatarUrl(null);
         return toResponse(userRepository.save(u));
     }
 
@@ -78,6 +102,7 @@ public class UserService {
                 .displayName(user.getDisplayName())
                 .avatarUrl(user.getAvatarUrl())
                 .bio(user.getBio())
+                .theme(user.getTheme())
                 .lastSeenAt(user.getLastSeenAt())
                 .build();
     }

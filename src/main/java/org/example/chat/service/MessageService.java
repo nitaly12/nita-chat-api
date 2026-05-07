@@ -3,6 +3,7 @@ package org.example.chat.service;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.example.chat.dto.MessageDeletedEvent;
+import org.example.chat.dto.reponse.ChatNotificationDTO;
 import org.example.chat.dto.reponse.MessageResponse;
 import org.example.chat.dto.request.MessageRequest;
 import org.example.chat.entity.ChatRoom;
@@ -26,6 +27,8 @@ public class MessageService {
     private final ChatRoomRepository chatRoomRepository;
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
+
+    private static final int PREVIEW_MAX = 120;
 
     @Transactional
     public MessageResponse sendMessage(MessageRequest request, User sender) {
@@ -56,9 +59,45 @@ public class MessageService {
                 .attachmentName(request.getAttachmentName())
                 .build();
 
-        MessageResponse response = toResponse(messageRepository.save(message));
+        Message saved = messageRepository.save(message);
+        MessageResponse response = toResponse(saved);
         messagingTemplate.convertAndSend("/topic/room/" + room.getId(), response);
+
+        room.getMembers().forEach(member -> notifyRecipient(member, managedSender, room, saved));
+
         return response;
+    }
+
+    private void notifyRecipient(User recipient, User sender, ChatRoom room, Message message) {
+        if (recipient == null || recipient.getId().equals(sender.getId())) {
+            return;
+        }
+
+        ChatNotificationDTO payload = ChatNotificationDTO.builder()
+                .chatId(room.getId())
+                .senderName(sender.getDisplayName() != null ? sender.getDisplayName() : sender.getUsername())
+                .senderAvatar(sender.getAvatarUrl())
+                .contentPreview(buildPreview(message))
+                .sentAt(message.getCreatedAt())
+                .build();
+
+        messagingTemplate.convertAndSendToUser(
+                recipient.getUsername(),
+                "/queue/notifications",
+                payload);
+    }
+
+    private String buildPreview(Message m) {
+        boolean hasContent = m.getContent() != null && !m.getContent().isBlank();
+        if (!hasContent && m.getAttachmentUrl() != null && !m.getAttachmentUrl().isBlank()) {
+            String type = m.getAttachmentType();
+            if (type != null && type.startsWith("image/")) return "[Image]";
+            if (type != null && type.startsWith("video/")) return "[Video]";
+            if (type != null && type.startsWith("audio/")) return "[Audio]";
+            return "[Attachment]";
+        }
+        String c = m.getContent() == null ? "" : m.getContent();
+        return c.length() > PREVIEW_MAX ? c.substring(0, PREVIEW_MAX) + "…" : c;
     }
 
     @Transactional

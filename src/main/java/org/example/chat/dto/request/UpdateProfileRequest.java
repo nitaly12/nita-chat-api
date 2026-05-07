@@ -1,5 +1,6 @@
 package org.example.chat.dto.request;
 
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -18,4 +19,7 @@ public class UpdateProfileRequest {
 
     @Size(max = 1024)
     private String avatarUrl;
+
+    @Pattern(regexp = "light|dark", message = "theme must be 'light' or 'dark'")
+    private String theme;
 }
