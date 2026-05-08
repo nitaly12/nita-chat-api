@@ -26,4 +26,6 @@ public class MessageRequest {
 
     @Size(max = 255)
     private String attachmentName;
+
+    private Long parentMessageId;
 }

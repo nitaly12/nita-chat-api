@@ -67,6 +67,45 @@ public class ReactionService {
         return event;
     }
 
+    @Transactional
+    public List<ReactionSummary> toggleReaction(Long userId, Long messageId, String emoji) {
+        Message message = messageRepository.findById(messageId)
+                .orElseThrow(() -> new EntityNotFoundException("Message not found: " + messageId));
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+        if (!isMember(message.getChatRoom(), user)) {
+            throw new AccessDeniedException("You are not a member of this chat room");
+        }
+
+        ReactionEvent.Action action;
+        var existing = reactionRepository.findByMessageIdAndUserIdAndEmoji(messageId, userId, emoji);
+        if (existing.isPresent()) {
+            reactionRepository.delete(existing.get());
+            action = ReactionEvent.Action.REMOVED;
+        } else {
+            reactionRepository.save(MessageReaction.builder()
+                    .message(message)
+                    .user(user)
+                    .emoji(emoji)
+                    .build());
+            action = ReactionEvent.Action.ADDED;
+        }
+
+        Long roomId = message.getChatRoom().getId();
+        messagingTemplate.convertAndSend(
+                "/topic/room/" + roomId + "/reactions",
+                ReactionEvent.builder()
+                        .action(action)
+                        .messageId(messageId)
+                        .roomId(roomId)
+                        .emoji(emoji)
+                        .userId(userId)
+                        .username(user.getUsername())
+                        .build());
+
+        return summarize(reactionRepository.findByMessageId(messageId));
+    }
+
     @Transactional(readOnly = true)
     public List<ReactionSummary> getReactions(Long messageId, User caller) {
         Message message = messageRepository.findById(messageId)

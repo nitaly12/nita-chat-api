@@ -22,4 +22,15 @@ public class MessageResponse {
     private String attachmentUrl;
     private String attachmentType;
     private String attachmentName;
+    private Quote parentMessage;
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class Quote {
+        private Long id;
+        private String senderName;
+        private String contentSnippet;
+    }
 }

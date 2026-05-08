@@ -10,6 +10,7 @@ import org.example.chat.entity.ChatRoom;
 import org.example.chat.entity.Message;
 import org.example.chat.entity.User;
 import org.example.chat.repository.ChatRoomRepository;
+import org.example.chat.repository.MessageReactionRepository;
 import org.example.chat.repository.MessageRepository;
 import org.example.chat.repository.UserRepository;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -24,6 +25,7 @@ import java.time.LocalDateTime;
 public class MessageService {
 
     private final MessageRepository messageRepository;
+    private final MessageReactionRepository messageReactionRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
@@ -50,9 +52,20 @@ public class MessageService {
             throw new IllegalArgumentException("Message must have content or an attachment");
         }
 
+        Message parent = null;
+        if (request.getParentMessageId() != null) {
+            parent = messageRepository.findById(request.getParentMessageId())
+                    .orElseThrow(() -> new EntityNotFoundException(
+                            "Parent message not found: " + request.getParentMessageId()));
+            if (!parent.getChatRoom().getId().equals(room.getId())) {
+                throw new IllegalArgumentException("Parent message belongs to a different room");
+            }
+        }
+
         Message message = Message.builder()
                 .chatRoom(room)
                 .sender(managedSender)
+                .parentMessage(parent)
                 .content(request.getContent() == null ? "" : request.getContent())
                 .attachmentUrl(request.getAttachmentUrl())
                 .attachmentType(request.getAttachmentType())
@@ -140,6 +153,7 @@ public class MessageService {
         }
 
         Long roomId = message.getChatRoom().getId();
+        messageReactionRepository.deleteAllByMessageId(messageId);
         messageRepository.delete(message);
         messagingTemplate.convertAndSend(
                 "/topic/room/" + roomId + "/deleted",
@@ -158,6 +172,16 @@ public class MessageService {
                 .attachmentUrl(m.getAttachmentUrl())
                 .attachmentType(m.getAttachmentType())
                 .attachmentName(m.getAttachmentName())
+                .parentMessage(toQuote(m.getParentMessage()))
+                .build();
+    }
+
+    private MessageResponse.Quote toQuote(Message parent) {
+        if (parent == null) return null;
+        return MessageResponse.Quote.builder()
+                .id(parent.getId())
+                .senderName(parent.getSender().getUsername())
+                .contentSnippet(buildPreview(parent))
                 .build();
     }
 }

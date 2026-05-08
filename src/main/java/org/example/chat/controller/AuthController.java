@@ -42,4 +42,26 @@ public class AuthController {
     public ResponseEntity<TokenRefreshResponse> refresh(@Valid @RequestBody TokenRefreshRequest request) {
         return ResponseEntity.ok(refreshTokenService.refreshAccessToken(request.getRefreshToken()));
     }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, String>> forgotPassword(@RequestBody Map<String, String> request) {
+        authService.forgotPassword(request.get("email"));
+        return ResponseEntity.ok(Map.of("message", "OTP has been sent to your email."));
+    }
+
+    @PostMapping("/verify-otp")
+    public ResponseEntity<Map<String, String>> verifyOtp(@RequestBody Map<String, String> request) {
+        authService.verifyOtp(request.get("email"), request.get("otp"));
+        return ResponseEntity.ok(Map.of("message", "OTP verified."));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, String>> resetPassword(@RequestBody Map<String, String> request) {
+        authService.resetPassword(
+                request.get("email"),
+                request.get("otp"),
+                request.get("newPassword")
+        );
+        return ResponseEntity.ok(Map.of("message", "Password has been successfully reset."));
+    }
 }
