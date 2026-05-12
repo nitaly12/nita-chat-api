@@ -47,11 +47,14 @@ public class User {
     @Column(name = "avatar_url", length = 1024)
     private String avatarUrl;
 
+    @Column(name = "cover_photo_url", length = 1024)
+    private String coverPhotoUrl;
+
     @Column(name = "theme", nullable = false, length = 16, columnDefinition = "varchar(16) default 'light'")
     @Builder.Default
     private String theme = "light";
 
-    @Column(length = 500)
+    @Column(length = 160)
     private String bio;
 
     @Column(name = "last_seen_at")

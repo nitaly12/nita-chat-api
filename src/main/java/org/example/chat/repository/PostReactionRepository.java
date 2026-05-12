@@ -8,12 +8,11 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
 @Repository
 public interface PostReactionRepository extends JpaRepository<PostReaction, Long> {
 
-    Optional<PostReaction> findByPostIdAndUserIdAndEmoji(Long postId, Long userId, String emoji);
+    List<PostReaction> findByPostIdAndUserIdOrderByIdDesc(Long postId, Long userId);
 
     List<PostReaction> findByPostId(Long postId);
 
@@ -22,4 +21,9 @@ public interface PostReactionRepository extends JpaRepository<PostReaction, Long
     @Query("SELECT r.postId AS postId, r.emoji AS emoji, COUNT(r) AS cnt FROM PostReaction r " +
             "WHERE r.postId IN :postIds GROUP BY r.postId, r.emoji")
     List<Object[]> countByPostIdGroupedByEmoji(@Param("postIds") Collection<Long> postIds);
+
+    @Query("SELECT r FROM PostReaction r WHERE r.userId = :userId AND r.postId IN :postIds " +
+            "ORDER BY r.id DESC")
+    List<PostReaction> findByUserIdAndPostIds(@Param("userId") Long userId,
+                                              @Param("postIds") Collection<Long> postIds);
 }

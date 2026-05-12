@@ -23,8 +23,16 @@ public class FileStorageService {
     private final FileStorageConfig storageConfig;
 
     public UploadResponse store(MultipartFile file) throws IOException {
+        return storeUnder(file, LocalDate.now().format(DAY));
+    }
+
+    public UploadResponse storeUnder(MultipartFile file, String subdir) throws IOException {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("File must not be empty");
+        }
+        String safeSub = subdir == null ? "" : subdir.replaceAll("[^A-Za-z0-9/_-]", "");
+        if (safeSub.isBlank()) {
+            throw new IllegalArgumentException("subdir must not be blank");
         }
 
         String original = file.getOriginalFilename() == null ? "file" : file.getOriginalFilename();
@@ -34,22 +42,20 @@ public class FileStorageService {
             ext = "." + original.substring(dot + 1).replaceAll("[^A-Za-z0-9]", "").toLowerCase();
         }
 
-        String day = LocalDate.now().format(DAY);
         String filename = UUID.randomUUID() + ext;
-        Path dir = storageConfig.getResolvedRoot().resolve(day);
+        Path dir = storageConfig.getResolvedRoot().resolve(safeSub);
         Files.createDirectories(dir);
-        Path target = dir.resolve(filename);
+        Path target = dir.resolve(filename).normalize();
 
-        Path normalized = target.normalize();
-        if (!normalized.startsWith(storageConfig.getResolvedRoot())) {
+        if (!target.startsWith(storageConfig.getResolvedRoot())) {
             throw new IllegalArgumentException("Invalid upload path");
         }
 
         try (var in = file.getInputStream()) {
-            Files.copy(in, normalized, StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
         }
 
-        String url = "/uploads/" + day + "/" + filename;
+        String url = "/uploads/" + safeSub + "/" + filename;
         return UploadResponse.builder()
                 .url(url)
                 .type(file.getContentType())

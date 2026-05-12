@@ -2,6 +2,7 @@ package org.example.chat.exception;
 
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -43,7 +45,7 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler({EntityNotFoundException.class, UsernameNotFoundException.class,
-            NoHandlerFoundException.class})
+            NoHandlerFoundException.class, NoResourceFoundException.class})
     public ResponseEntity<Map<String, Object>> handleNotFound(RuntimeException ex,
                                                               HttpServletRequest req) {
         return error(HttpStatus.NOT_FOUND, ex.getMessage(), req);
@@ -53,6 +55,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleBadRequest(IllegalArgumentException ex,
                                                                 HttpServletRequest req) {
         return error(HttpStatus.BAD_REQUEST, ex.getMessage(), req);
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, Object>> handleConflictState(IllegalStateException ex,
+                                                                   HttpServletRequest req) {
+        return error(HttpStatus.CONFLICT, ex.getMessage(), req);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrity(DataIntegrityViolationException ex,
+                                                                   HttpServletRequest req) {
+        return error(HttpStatus.CONFLICT, "Resource already exists or violates a uniqueness constraint", req);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

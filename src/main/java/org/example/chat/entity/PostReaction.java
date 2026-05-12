@@ -21,8 +21,8 @@ import java.time.LocalDateTime;
 @Table(
         name = "post_reactions",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_post_reactions_post_user_emoji",
-                columnNames = {"post_id", "user_id", "emoji"}),
+                name = "uk_post_reactions_post_user",
+                columnNames = {"post_id", "user_id"}),
         indexes = {
                 @Index(name = "idx_post_reactions_post_id", columnList = "post_id")
         }

@@ -13,7 +13,7 @@ import java.util.Map;
 @NoArgsConstructor
 public class PostReactionResponse {
 
-    public enum Action { ADDED, REMOVED }
+    public enum Action { ADDED, REMOVED, REPLACED }
 
     private Long postId;
     private String emoji;

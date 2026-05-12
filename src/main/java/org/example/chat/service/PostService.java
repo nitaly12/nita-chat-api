@@ -8,6 +8,7 @@ import org.example.chat.dto.request.CreatePostRequest;
 import org.example.chat.dto.request.UpdatePostRequest;
 import org.example.chat.entity.Comment;
 import org.example.chat.entity.Post;
+import org.example.chat.entity.PostReaction;
 import org.example.chat.entity.User;
 import org.example.chat.repository.CommentRepository;
 import org.example.chat.repository.PostReactionRepository;
@@ -46,7 +47,7 @@ public class PostService {
                 .mediaUrl(request.getMediaUrl())
                 .build();
         Post saved = postRepository.save(post);
-        return toResponse(saved, true, 0L, 0L, Collections.emptyMap(), Collections.emptyList());
+        return toResponse(saved, true, 0L, 0L, 0L, null, Collections.emptyMap(), Collections.emptyList());
     }
 
     @Transactional
@@ -75,16 +76,21 @@ public class PostService {
     }
 
     @Transactional(readOnly = true)
-    public List<PostResponse> getPostsByUserId(Long userId) {
+    public List<PostResponse> getPostsByUserId(Long userId, User caller) {
         if (!userRepository.existsById(userId)) {
             throw new EntityNotFoundException("User not found: " + userId);
         }
-        return enrich(postRepository.findByUserIdOrderByCreatedAtDesc(userId), null);
+        return enrich(postRepository.findByUserIdOrderByCreatedAtDesc(userId), caller);
     }
 
     @Transactional(readOnly = true)
     public List<PostResponse> getMyPosts(User caller) {
         return enrich(postRepository.findByUserIdOrderByCreatedAtDesc(caller.getId()), caller);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PostResponse> getFeed(User caller) {
+        return enrich(postRepository.findFeedForUser(caller.getId()), caller);
     }
 
     private List<PostResponse> enrich(List<Post> posts, User caller) {
@@ -96,15 +102,24 @@ public class PostService {
         Map<Long, Map<String, Long>> reactionCounts = reactionMap(reactionRepository.countByPostIdGroupedByEmoji(ids));
         Map<Long, List<CommentDTO>> commentsByPost = commentMap(
                 commentRepository.findByPostIdsWithAuthor(ids), caller);
+        Map<Long, String> myReactions = caller == null
+                ? Collections.emptyMap()
+                : myReactionMap(reactionRepository.findByUserIdAndPostIds(caller.getId(), ids));
 
         return posts.stream()
-                .map(p -> toResponse(
-                        p,
-                        caller != null && p.getUserId().equals(caller.getId()) ? Boolean.TRUE : null,
-                        commentCounts.getOrDefault(p.getId(), 0L),
-                        shareCounts.getOrDefault(p.getId(), 0L),
-                        reactionCounts.getOrDefault(p.getId(), Collections.emptyMap()),
-                        commentsByPost.getOrDefault(p.getId(), Collections.emptyList())))
+                .map(p -> {
+                    Map<String, Long> summary = reactionCounts.getOrDefault(p.getId(), Collections.emptyMap());
+                    long total = summary.values().stream().mapToLong(Long::longValue).sum();
+                    return toResponse(
+                            p,
+                            caller != null && p.getUserId().equals(caller.getId()) ? Boolean.TRUE : null,
+                            commentCounts.getOrDefault(p.getId(), 0L),
+                            shareCounts.getOrDefault(p.getId(), 0L),
+                            total,
+                            myReactions.get(p.getId()),
+                            summary,
+                            commentsByPost.getOrDefault(p.getId(), Collections.emptyList()));
+                })
                 .toList();
     }
 
@@ -112,13 +127,20 @@ public class PostService {
         long comments = commentRepository.countByPostId(p.getId());
         long shares = shareRepository.countByPostId(p.getId());
         Map<String, Long> reactions = PostReactionService.summarize(reactionRepository.findByPostId(p.getId()));
+        long totalReactions = reactions.values().stream().mapToLong(Long::longValue).sum();
+        String myReaction = null;
+        if (caller != null) {
+            List<PostReaction> mine = reactionRepository.findByPostIdAndUserIdOrderByIdDesc(p.getId(), caller.getId());
+            if (!mine.isEmpty()) myReaction = mine.get(0).getEmoji();
+        }
         List<CommentDTO> commentList = commentRepository.findByPostIdWithAuthor(p.getId()).stream()
                 .map(c -> PostCommentService.toDto(c, caller))
                 .toList();
-        return toResponse(p, isOwner, comments, shares, reactions, commentList);
+        return toResponse(p, isOwner, comments, shares, totalReactions, myReaction, reactions, commentList);
     }
 
     private PostResponse toResponse(Post p, Boolean isOwner, long commentCount, long shareCount,
+                                    long reactionCount, String myReaction,
                                     Map<String, Long> reactionSummary, List<CommentDTO> comments) {
         return PostResponse.builder()
                 .id(p.getId())
@@ -129,9 +151,19 @@ public class PostService {
                 .isOwner(isOwner)
                 .commentCount(commentCount)
                 .shareCount(shareCount)
+                .reactionCount(reactionCount)
+                .myReaction(myReaction)
                 .reactionSummary(reactionSummary)
                 .comments(comments)
                 .build();
+    }
+
+    private static Map<Long, String> myReactionMap(List<PostReaction> reactions) {
+        Map<Long, String> out = new HashMap<>();
+        for (PostReaction r : reactions) {
+            out.putIfAbsent(r.getPostId(), r.getEmoji());
+        }
+        return out;
     }
 
     private static Map<Long, List<CommentDTO>> commentMap(List<Comment> rows, User caller) {

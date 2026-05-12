@@ -112,8 +112,18 @@ public class PostController {
         return ResponseEntity.ok(postService.getMyPosts(caller));
     }
 
+    @GetMapping("/feed")
+    public ResponseEntity<List<PostResponse>> getFeed(
+            @AuthenticationPrincipal UserDetails principal) {
+        User caller = userService.loadByUsername(principal.getUsername());
+        return ResponseEntity.ok(postService.getFeed(caller));
+    }
+
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<PostResponse>> getUserPosts(@PathVariable Long userId) {
-        return ResponseEntity.ok(postService.getPostsByUserId(userId));
+    public ResponseEntity<List<PostResponse>> getUserPosts(
+            @PathVariable Long userId,
+            @AuthenticationPrincipal UserDetails principal) {
+        User caller = principal == null ? null : userService.loadByUsername(principal.getUsername());
+        return ResponseEntity.ok(postService.getPostsByUserId(userId, caller));
     }
 }

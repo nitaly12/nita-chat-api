@@ -5,23 +5,13 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class UserResponse {
+public class FriendDTO {
     private Long id;
     private String username;
-    private String role;
-    private boolean online;
     private String displayName;
     private String avatarUrl;
-    private String coverPhotoUrl;
-    private String bio;
-    private String theme;
-    private LocalDateTime lastSeenAt;
-    private String friendshipStatus;
-    private Long requesterId;
 }

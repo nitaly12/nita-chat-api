@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.example.chat.dto.reponse.PublicProfileResponse;
 import org.example.chat.dto.reponse.UploadResponse;
 import org.example.chat.dto.reponse.UserResponse;
+import org.example.chat.dto.request.ProfileSettingsForm;
 import org.example.chat.dto.request.UpdateProfileRequest;
 import org.example.chat.service.FileStorageService;
 import org.example.chat.service.UserService;
@@ -14,6 +15,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -39,6 +41,11 @@ public class UserController {
         return ResponseEntity.ok(userService.getAllUsersExcept(principal.getUsername()));
     }
 
+    @GetMapping("/suggestions")
+    public ResponseEntity<List<UserResponse>> getSuggestedFriends(@AuthenticationPrincipal UserDetails principal) {
+        return ResponseEntity.ok(userService.getSuggestedFriends(principal.getUsername()));
+    }
+
     @GetMapping("/me")
     public ResponseEntity<UserResponse> getCurrentUser(@AuthenticationPrincipal UserDetails principal) {
         return ResponseEntity.ok(userService.getCurrentUser(principal.getUsername()));
@@ -59,6 +66,16 @@ public class UserController {
             @Valid @RequestBody UpdateProfileRequest request,
             @AuthenticationPrincipal UserDetails principal) {
         return ResponseEntity.ok(userService.updateProfile(principal.getUsername(), request));
+    }
+
+    @PutMapping(value = "/me/profile", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<UserResponse> updateProfileSettings(
+            @Valid @ModelAttribute ProfileSettingsForm form,
+            @RequestPart(name = "avatar", required = false) MultipartFile avatar,
+            @RequestPart(name = "coverPhoto", required = false) MultipartFile coverPhoto,
+            @AuthenticationPrincipal UserDetails principal) throws IOException {
+        return ResponseEntity.ok(
+                userService.updateProfileSettings(principal.getUsername(), form, avatar, coverPhoto));
     }
 
     @PostMapping(value = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

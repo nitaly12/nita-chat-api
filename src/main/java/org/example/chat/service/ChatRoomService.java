@@ -145,7 +145,7 @@ public class ChatRoomService {
         }
         Map<Long, List<ReactionSummary>> reactionsByMessage =
                 reactionService.getReactionsForRoom(roomId);
-        return messageRepository.findByChatRoomIdOrderByCreatedAtAsc(roomId).stream()
+        return messageRepository.findHistoryByChatRoomId(roomId).stream()
                 .map(msg -> MessageDTO.builder()
                         .id(msg.getId())
                         .content(msg.getContent())
@@ -158,8 +158,32 @@ public class ChatRoomService {
                         .attachmentType(msg.getAttachmentType())
                         .attachmentName(msg.getAttachmentName())
                         .reactions(reactionsByMessage.getOrDefault(msg.getId(), Collections.emptyList()))
+                        .parentMessage(toQuote(msg.getParentMessage()))
                         .build())
                 .toList();
+    }
+
+    private static final int PREVIEW_MAX = 120;
+
+    private static MessageDTO.Quote toQuote(org.example.chat.entity.Message parent) {
+        if (parent == null) return null;
+        String content = parent.getContent() == null ? "" : parent.getContent();
+        boolean hasContent = !content.isBlank();
+        String snippet;
+        if (!hasContent && parent.getAttachmentUrl() != null && !parent.getAttachmentUrl().isBlank()) {
+            String type = parent.getAttachmentType();
+            if (type != null && type.startsWith("image/")) snippet = "[Image]";
+            else if (type != null && type.startsWith("video/")) snippet = "[Video]";
+            else if (type != null && type.startsWith("audio/")) snippet = "[Audio]";
+            else snippet = "[Attachment]";
+        } else {
+            snippet = content.length() > PREVIEW_MAX ? content.substring(0, PREVIEW_MAX) + "…" : content;
+        }
+        return MessageDTO.Quote.builder()
+                .id(parent.getId())
+                .senderName(parent.getSender().getUsername())
+                .contentSnippet(snippet)
+                .build();
     }
 
     private boolean isMember(ChatRoom room, User user) {

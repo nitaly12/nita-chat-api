@@ -17,6 +17,14 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
 
     Page<Message> findByChatRoomIdOrderByCreatedAtDesc(Long chatRoomId, Pageable pageable);
 
+    @Query("SELECT m FROM Message m " +
+            "JOIN FETCH m.sender " +
+            "LEFT JOIN FETCH m.parentMessage p " +
+            "LEFT JOIN FETCH p.sender " +
+            "WHERE m.chatRoom.id = :roomId " +
+            "ORDER BY m.createdAt ASC")
+    List<Message> findHistoryByChatRoomId(@Param("roomId") Long roomId);
+
     @Query("SELECT m FROM Message m JOIN m.chatRoom r JOIN r.members u " +
             "WHERE u.id = :userId " +
             "AND (:roomId IS NULL OR r.id = :roomId) " +

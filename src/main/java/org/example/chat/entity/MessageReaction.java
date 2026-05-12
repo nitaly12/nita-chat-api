@@ -14,8 +14,8 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "message_reactions",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_message_reactions_msg_user_emoji",
-                columnNames = {"message_id", "user_id", "emoji"}))
+                name = "uk_message_reactions_msg_user",
+                columnNames = {"message_id", "user_id"}))
 @Getter
 @Setter
 @NoArgsConstructor

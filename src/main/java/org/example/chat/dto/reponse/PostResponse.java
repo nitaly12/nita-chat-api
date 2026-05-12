@@ -22,6 +22,8 @@ public class PostResponse {
     private Boolean isOwner;
     private long commentCount;
     private long shareCount;
+    private long reactionCount;
+    private String myReaction;
     private Map<String, Long> reactionSummary;
     private List<CommentDTO> comments;
 }

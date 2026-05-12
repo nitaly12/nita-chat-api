@@ -8,12 +8,11 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.Optional;
 
 @Repository
 public interface MessageReactionRepository extends JpaRepository<MessageReaction, Long> {
 
-    Optional<MessageReaction> findByMessageIdAndUserIdAndEmoji(Long messageId, Long userId, String emoji);
+    List<MessageReaction> findByMessageIdAndUserIdOrderByIdDesc(Long messageId, Long userId);
 
     List<MessageReaction> findByMessageId(Long messageId);
 

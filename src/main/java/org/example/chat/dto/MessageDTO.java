@@ -24,4 +24,15 @@ public class MessageDTO {
     private String attachmentType;
     private String attachmentName;
     private List<ReactionSummary> reactions;
+    private Quote parentMessage;
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class Quote {
+        private Long id;
+        private String senderName;
+        private String contentSnippet;
+    }
 }

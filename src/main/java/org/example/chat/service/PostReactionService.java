@@ -13,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -29,11 +28,24 @@ public class PostReactionService {
         }
 
         PostReactionResponse.Action action;
-        Optional<PostReaction> existing =
-                reactionRepository.findByPostIdAndUserIdAndEmoji(postId, caller.getId(), emoji);
-        if (existing.isPresent()) {
-            reactionRepository.delete(existing.get());
-            action = PostReactionResponse.Action.REMOVED;
+        String resultingEmoji = emoji;
+        List<PostReaction> existingRows =
+                reactionRepository.findByPostIdAndUserIdOrderByIdDesc(postId, caller.getId());
+
+        if (!existingRows.isEmpty()) {
+            PostReaction current = existingRows.get(0);
+            if (existingRows.size() > 1) {
+                reactionRepository.deleteAll(existingRows.subList(1, existingRows.size()));
+            }
+            if (current.getEmoji().equals(emoji)) {
+                reactionRepository.delete(current);
+                action = PostReactionResponse.Action.REMOVED;
+                resultingEmoji = null;
+            } else {
+                current.setEmoji(emoji);
+                reactionRepository.save(current);
+                action = PostReactionResponse.Action.REPLACED;
+            }
         } else {
             reactionRepository.save(PostReaction.builder()
                     .postId(postId)
@@ -45,7 +57,7 @@ public class PostReactionService {
 
         return PostReactionResponse.builder()
                 .postId(postId)
-                .emoji(emoji)
+                .emoji(resultingEmoji)
                 .action(action)
                 .reactionSummary(summarize(reactionRepository.findByPostId(postId)))
                 .build();

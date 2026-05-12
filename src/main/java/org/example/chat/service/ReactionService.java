@@ -40,10 +40,24 @@ public class ReactionService {
         }
 
         ReactionEvent.Action action;
-        var existing = reactionRepository.findByMessageIdAndUserIdAndEmoji(messageId, caller.getId(), emoji);
-        if (existing.isPresent()) {
-            reactionRepository.delete(existing.get());
-            action = ReactionEvent.Action.REMOVED;
+        String resultingEmoji = emoji;
+        List<MessageReaction> existingRows =
+                reactionRepository.findByMessageIdAndUserIdOrderByIdDesc(messageId, caller.getId());
+
+        if (!existingRows.isEmpty()) {
+            MessageReaction current = existingRows.get(0);
+            if (existingRows.size() > 1) {
+                reactionRepository.deleteAll(existingRows.subList(1, existingRows.size()));
+            }
+            if (current.getEmoji().equals(emoji)) {
+                reactionRepository.delete(current);
+                action = ReactionEvent.Action.REMOVED;
+                resultingEmoji = null;
+            } else {
+                current.setEmoji(emoji);
+                reactionRepository.save(current);
+                action = ReactionEvent.Action.REPLACED;
+            }
         } else {
             User managedUser = userRepository.findById(caller.getId())
                     .orElseThrow(() -> new EntityNotFoundException("User not found: " + caller.getId()));
@@ -55,20 +69,22 @@ public class ReactionService {
             action = ReactionEvent.Action.ADDED;
         }
 
+        Map<String, Long> counts = summarizeCounts(reactionRepository.findByMessageId(messageId));
         ReactionEvent event = ReactionEvent.builder()
                 .action(action)
                 .messageId(messageId)
                 .roomId(room.getId())
-                .emoji(emoji)
+                .emoji(resultingEmoji)
                 .userId(caller.getId())
                 .username(caller.getUsername())
+                .reactionSummary(counts)
                 .build();
         messagingTemplate.convertAndSend("/topic/room/" + room.getId() + "/reactions", event);
         return event;
     }
 
     @Transactional
-    public List<ReactionSummary> toggleReaction(Long userId, Long messageId, String emoji) {
+    public Map<String, Long> toggleReaction(Long userId, Long messageId, String emoji) {
         Message message = messageRepository.findById(messageId)
                 .orElseThrow(() -> new EntityNotFoundException("Message not found: " + messageId));
         User user = userRepository.findById(userId)
@@ -78,10 +94,24 @@ public class ReactionService {
         }
 
         ReactionEvent.Action action;
-        var existing = reactionRepository.findByMessageIdAndUserIdAndEmoji(messageId, userId, emoji);
-        if (existing.isPresent()) {
-            reactionRepository.delete(existing.get());
-            action = ReactionEvent.Action.REMOVED;
+        String resultingEmoji = emoji;
+        List<MessageReaction> existingRows =
+                reactionRepository.findByMessageIdAndUserIdOrderByIdDesc(messageId, userId);
+
+        if (!existingRows.isEmpty()) {
+            MessageReaction current = existingRows.get(0);
+            if (existingRows.size() > 1) {
+                reactionRepository.deleteAll(existingRows.subList(1, existingRows.size()));
+            }
+            if (current.getEmoji().equals(emoji)) {
+                reactionRepository.delete(current);
+                action = ReactionEvent.Action.REMOVED;
+                resultingEmoji = null;
+            } else {
+                current.setEmoji(emoji);
+                reactionRepository.save(current);
+                action = ReactionEvent.Action.REPLACED;
+            }
         } else {
             reactionRepository.save(MessageReaction.builder()
                     .message(message)
@@ -91,6 +121,7 @@ public class ReactionService {
             action = ReactionEvent.Action.ADDED;
         }
 
+        Map<String, Long> counts = summarizeCounts(reactionRepository.findByMessageId(messageId));
         Long roomId = message.getChatRoom().getId();
         messagingTemplate.convertAndSend(
                 "/topic/room/" + roomId + "/reactions",
@@ -98,12 +129,13 @@ public class ReactionService {
                         .action(action)
                         .messageId(messageId)
                         .roomId(roomId)
-                        .emoji(emoji)
+                        .emoji(resultingEmoji)
                         .userId(userId)
                         .username(user.getUsername())
+                        .reactionSummary(counts)
                         .build());
 
-        return summarize(reactionRepository.findByMessageId(messageId));
+        return counts;
     }
 
     @Transactional(readOnly = true)
@@ -122,6 +154,14 @@ public class ReactionService {
                 .collect(Collectors.groupingBy(r -> r.getMessage().getId()))
                 .entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, e -> summarize(e.getValue())));
+    }
+
+    private Map<String, Long> summarizeCounts(List<MessageReaction> reactions) {
+        Map<String, Long> counts = new LinkedHashMap<>();
+        for (MessageReaction r : reactions) {
+            counts.merge(r.getEmoji(), 1L, Long::sum);
+        }
+        return counts;
     }
 
     private List<ReactionSummary> summarize(List<MessageReaction> reactions) {
