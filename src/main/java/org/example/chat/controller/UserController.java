@@ -2,6 +2,7 @@ package org.example.chat.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.example.chat.dto.reponse.FriendDTO;
 import org.example.chat.dto.reponse.PublicProfileResponse;
 import org.example.chat.dto.reponse.UploadResponse;
 import org.example.chat.dto.reponse.UserResponse;
@@ -42,8 +43,8 @@ public class UserController {
     }
 
     @GetMapping("/suggestions")
-    public ResponseEntity<List<UserResponse>> getSuggestedFriends(@AuthenticationPrincipal UserDetails principal) {
-        return ResponseEntity.ok(userService.getSuggestedFriends(principal.getUsername()));
+    public ResponseEntity<List<FriendDTO>> getSuggestedConnections(@AuthenticationPrincipal UserDetails principal) {
+        return ResponseEntity.ok(userService.getSuggestedConnections(principal.getUsername()));
     }
 
     @GetMapping("/me")

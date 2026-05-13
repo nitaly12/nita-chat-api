@@ -79,6 +79,7 @@ public class FriendshipService {
                         .username(u.getUsername())
                         .displayName(u.getDisplayName())
                         .avatarUrl(u.getAvatarUrl())
+                        .friendshipStatus(Friendship.Status.ACCEPTED.name())
                         .build())
                 .toList();
     }

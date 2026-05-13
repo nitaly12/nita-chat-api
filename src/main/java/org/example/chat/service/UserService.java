@@ -2,6 +2,7 @@ package org.example.chat.service;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.example.chat.dto.reponse.FriendDTO;
 import org.example.chat.dto.reponse.PublicProfileResponse;
 import org.example.chat.dto.reponse.UploadResponse;
 import org.example.chat.dto.reponse.UserResponse;
@@ -44,12 +45,10 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public List<UserResponse> getSuggestedFriends(String currentUsername) {
+    public List<FriendDTO> getSuggestedConnections(String currentUsername) {
         User current = userRepository.findByUsername(currentUsername)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + currentUsername));
-        return userRepository.findSuggestedFriends(current.getId()).stream()
-                .map(u -> toResponse(u, "NONE", null))
-                .toList();
+        return userRepository.findSuggestedConnections(current.getId());
     }
 
     private record FriendshipView(String status, Long requesterId) {}
