@@ -38,10 +38,16 @@ public class FileStorageConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        Path root = Paths.get(uploadDir).toAbsolutePath().normalize();
+        Path root = (resolvedRoot != null)
+                ? resolvedRoot
+                : Paths.get(uploadDir).toAbsolutePath().normalize();
         String location = root.toUri().toString();
+        if (!location.endsWith("/")) {
+            location = location + "/";
+        }
         log.info("Mapping /uploads/** -> {}", location);
         registry.addResourceHandler("/uploads/**")
-                .addResourceLocations(location);
+                .addResourceLocations(location)
+                .setCachePeriod(3600);
     }
 }
